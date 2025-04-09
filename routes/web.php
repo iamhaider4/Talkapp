@@ -26,7 +26,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Talk Proposal Routes
     Route::resource('talk-proposals', TalkProposalController::class);
-    Route::post('talk-proposals/{talkProposal}/review', [TalkProposalController::class, 'review'])
+    Route::post('/talk-proposals/{talkProposal}/review', [TalkProposalController::class, 'review'])
         ->name('talk-proposals.review');
 
     // Profile Routes

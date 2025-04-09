@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\TalkProposal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class TalkProposalController extends Controller
 {
@@ -56,6 +58,7 @@ class TalkProposalController extends Controller
 
     public function show(TalkProposal $talkProposal)
     {
+        $talkProposal->load(['user', 'reviews.user']);
         return view('talk-proposals.show', compact('talkProposal'));
     }
 
@@ -78,6 +81,9 @@ class TalkProposalController extends Controller
         ]);
 
         if ($request->hasFile('presentation_file')) {
+            if ($talkProposal->presentation_file_path) {
+                Storage::disk('public')->delete($talkProposal->presentation_file_path);
+            }
             $file = $request->file('presentation_file');
             $path = $file->store('presentations', 'public');
             $validated['presentation_file_path'] = $path;
@@ -92,6 +98,11 @@ class TalkProposalController extends Controller
     public function destroy(TalkProposal $talkProposal)
     {
         $this->authorize('delete', $talkProposal);
+        
+        if ($talkProposal->presentation_file_path) {
+            Storage::disk('public')->delete($talkProposal->presentation_file_path);
+        }
+        
         $talkProposal->delete();
 
         return redirect()->route('talk-proposals.index')
@@ -100,23 +111,39 @@ class TalkProposalController extends Controller
 
     public function review(Request $request, TalkProposal $talkProposal)
     {
-        $this->authorize('review', $talkProposal);
+        try {
+            $this->authorize('review', $talkProposal);
 
-        $validated = $request->validate([
-            'status' => 'required|in:accepted,rejected',
-            'feedback' => 'required|string|min:10',
-        ]);
+            $validated = $request->validate([
+                'status' => 'required|in:accepted,rejected',
+                'feedback' => 'required|string|min:10',
+            ]);
 
-        $talkProposal->update([
-            'status' => $validated['status']
-        ]);
+            // First create the review
+            $review = $talkProposal->reviews()->create([
+                'user_id' => Auth::id(),
+                'feedback' => $validated['feedback']
+            ]);
 
-        $talkProposal->reviews()->create([
-            'user_id' => Auth::id(),
-            'feedback' => $validated['feedback']
-        ]);
+            // Then update the proposal status
+            $talkProposal->status = $validated['status'];
+            $talkProposal->save();
 
-        return redirect()->route('talk-proposals.show', $talkProposal)
-            ->with('success', 'Talk proposal ' . $validated['status'] . ' successfully!');
+            Log::info('Talk proposal review completed', [
+                'proposal_id' => $talkProposal->id,
+                'new_status' => $validated['status'],
+                'review_id' => $review->id
+            ]);
+
+            return redirect()->route('talk-proposals.show', $talkProposal)
+                ->with('success', 'Talk proposal ' . $validated['status'] . ' successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error reviewing talk proposal', [
+                'proposal_id' => $talkProposal->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Error updating proposal status. Please try again.');
+        }
     }
 }

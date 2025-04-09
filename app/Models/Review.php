@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\TalkProposal;
 use App\Models\User;
 
@@ -12,19 +13,18 @@ class Review extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'talk_proposal_id',
-        'reviewer_id',
-        'rating',
-        'comments'
+        'feedback'
     ];
 
-    public function talkProposal()
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(TalkProposal::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function reviewer()
+    public function talkProposal(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewer_id');
+        return $this->belongsTo(TalkProposal::class);
     }
 }

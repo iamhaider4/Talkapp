@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable
@@ -50,18 +51,23 @@ class User extends Authenticatable
     //     $this->attributes['password'] = Hash::make($value);
     // }
 
-    public function proposals()
+    public function proposals(): HasMany
     {
         return $this->hasMany(TalkProposal::class);
     }
 
-    public function reviews()
+    public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'reviewer_id');
     }
 
-    public function revisions()
+    public function revisions(): HasMany
     {
         return $this->hasMany(TalkRevision::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
     }
 }
